@@ -1,0 +1,23 @@
+<launch>
+    <!-- 启动 ros_decode.py -->
+     <!-- <node name="signal_decoder" pkg="com" type="ros_decode.py" output="screen" />-->
+    
+    <!-- 启动 ros_decode.py -->
+    <!--<node name="signal_decoder" pkg="com" type="decode.py" output="screen" />-->
+
+    <!-- 启动 tracker_sim.py -->
+    <!--<node name="tracker" pkg="com" type="tracker_sim.py" output="screen" />-->
+
+    <!-- 启动 ros_encode.py -->
+    <node name="signal_decoder" pkg="com" type="decode04.py" output="screen" />
+
+    <!-- 启动 ros_encode.py -->
+    <!--<node name="led_publisher" pkg="com" type="encode.py" output="screen" />-->
+    
+    <!-- 启动 command.py -->
+    <!--node name="com_publisher" pkg="com" type="command.py" output="screen" /-->
+    
+     <!-- 启动 control.py -->
+     <!--<node name="control" pkg="com" type="control.py" output="screen" />-->
+    
+</launch>
