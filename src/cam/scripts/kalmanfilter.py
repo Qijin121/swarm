@@ -391,45 +391,42 @@ class KalmanFilterNew(object):
         if self.attr_saved is not None:
             new_history = deepcopy(self.history_obs)
             self.__dict__ = self.attr_saved
-            # self.history_obs = new_history 
             self.history_obs = self.history_obs[:-1]
+            
+            # 找到最后两个有效的观测值
             occur = [int(d is None) for d in new_history]
             indices = np.where(np.array(occur)==0)[0]
+            if len(indices) < 2:
+                return
+                
             index1 = indices[-2]
             index2 = indices[-1]
-            box1 = new_history[index1]
-            x1, y1, s1, r1 = box1 
-            w1 = np.sqrt(s1 * r1)
-            h1 = np.sqrt(s1 / r1)
-            box2 = new_history[index2]
-            x2, y2, s2, r2 = box2 
-            w2 = np.sqrt(s2 * r2)
-            h2 = np.sqrt(s2 / r2)
+            
+            # 获取两个观测值
+            obs1 = new_history[index1]  # 格式: [0_3x1; hat_r*hat_g]
+            obs2 = new_history[index2]
+            
+            # 提取位置信息（后3个元素）
+            pos1 = obs1[3:6].reshape(3)  # hat_r1 * hat_g1
+            pos2 = obs2[3:6].reshape(3)  # hat_r2 * hat_g2
+            
+            # 计算时间间隔
             time_gap = index2 - index1
-            dx = (x2-x1)/time_gap
-            dy = (y2-y1)/time_gap 
-            dw = (w2-w1)/time_gap 
-            dh = (h2-h1)/time_gap
+            
+            # 计算位置和速度的线性变化率
+            dpos = (pos2 - pos1) / time_gap
+            
+            # 生成虚拟轨迹
             for i in range(index2 - index1):
-                """
-                    The default virtual trajectory generation is by linear
-                    motion (constant speed hypothesis), you could modify this 
-                    part to implement your own. 
-                """
-                x = x1 + (i+1) * dx 
-                y = y1 + (i+1) * dy 
-                w = w1 + (i+1) * dw 
-                h = h1 + (i+1) * dh
-                s = w * h 
-                r = w / float(h)
-                new_box = np.array([x, y, s, r]).reshape((4, 1))
-                """
-                    I still use predict-update loop here to refresh the parameters,
-                    but this can be faster by directly modifying the internal parameters
-                    as suggested in the paper. I keep this naive but slow way for 
-                    easy read and understanding
-                """
-                self.update(new_box)
+                # 计算插值位置
+                pos = pos1 + (i+1) * dpos
+                
+                # 构建观测向量 [0_3x1; hat_r*hat_g]
+                new_obs = np.zeros((6, 1))
+                new_obs[3:6] = pos.reshape(3, 1)
+                
+                # 更新滤波器状态
+                self.update(new_obs)
                 if not i == (index2-index1-1):
                     self.predict()
 
