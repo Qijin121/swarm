@@ -21,7 +21,7 @@ from ocsort import OCSort
 import threading
 
 
-Cam_ID = 30
+Cam_ID = 11
 
 class Tracker:
     def __init__(self, output_path, tracker_params):
@@ -323,7 +323,7 @@ if __name__ == '__main__':
                 current_time = datetime.now().strftime('%m%d%H%M%S%f')
                 frame = cam.get_frame()
                 # cv2.imshow('frame', frame)
-                cv2.imwrite(image_dir + current_time + ".png", frame)
+                # cv2.imwrite(image_dir + current_time + ".png", frame)
                 if frame is None:
                     continue
             except mvsdk.CameraException as e:

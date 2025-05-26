@@ -6,7 +6,7 @@ import rospy
 import tf
 import sys
 sys.path.append('/home/li/IRSWARM_ws/devel/lib/python3/dist-packages')
-from cam.msg import LightInfo,Detection, Dects
+from cam.msg import LightInfo,Detection, Dects,g_r
 import math as m
 
 # 外参矩阵
@@ -393,7 +393,7 @@ class LightLocalizer():
         for i, (u, v) in enumerate(pixel_loc):
             distance = self.pixel_sum_to_distance(pixel_sum[i], exposure, env_calue)
             p_car = self.pixel_to_car_coordinates(u, v, distance, cam_id)
-            lights.append(LightInfo(x=p_car[0], y=p_car[1], distance=distance))
+            lights.append(g_r(x=p_car[0], y=p_car[1], distance=distance))
             print(f'x={p_car[0]}, y={p_car[1]}, distance={distance}')
             print(self.dis1_2)
             loc.append([p_car[0], p_car[1]])

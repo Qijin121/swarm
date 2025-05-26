@@ -21,7 +21,7 @@ from ocsort import OCSort
 import threading
 
 
-Cam_ID = 30
+Cam_ID = 12
 
 class Tracker:
     def __init__(self, output_path, tracker_params):
@@ -102,9 +102,8 @@ class Tracker:
                         light = LightInfo()
                         light.x = x
                         light.y = y
-                        light.distance = z
-                        light.velocity_x = vx
-                        light.velocity_y = vy
+                        light.vx = vx
+                        light.vy = vy
                         tracked_lights.append(light)
 
             self.frame_id += 1
