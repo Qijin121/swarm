@@ -44,6 +44,7 @@ class Tracker:
         """处理方向向量和距离数据"""
         with self.lock:
             current_ids = set()
+            tracked_lights = []  # 创建新的lights列表
 
             if len(g_r_data) > 0:
                 # 构建检测数据 [(hat_g, hat_r, score)]
@@ -84,7 +85,7 @@ class Tracker:
             if tracked_states:
                 for state in tracked_states:
                     if len(state) >= 3:  # 确保有完整的坐标[x,y,z]
-                        x, y, z, tid = state[:4]
+                        x, y, z, tid, vx, vy, vz = state
                         if tid not in current_ids:
                             # 更新ID状态
                             if tid not in self.id_status:
@@ -96,8 +97,19 @@ class Tracker:
                             track_msg.track_id = tid
                             track_msg.status = 0
                             self.tracking_pub.publish(track_msg)
+                        
+                        # 创建新的light数据
+                        light = LightInfo()
+                        light.x = x
+                        light.y = y
+                        light.distance = z
+                        light.velocity_x = vx
+                        light.velocity_y = vy
+                        tracked_lights.append(light)
 
             self.frame_id += 1
+            
+            return tracked_lights
 
     def save_id_status(self):
         with self.lock:
@@ -131,7 +143,7 @@ class Camera(object):
         self.cam_id = Cam_ID % 4 - 1
         
         # Initialize tracker
-        output_path = "/home/li/tracking_results"
+        output_path = "/home/nvidia/swarm/tracking_results"
         tracker_params = {
             "det_thresh": 0.5,
             "iou_threshold": 0.3,
@@ -270,8 +282,8 @@ class Camera(object):
         # reproject method
         lights = localizer.reproject(self.pixel_loc, self.pixel_sum, self.exposure, self.env_calue, self.cam_id, savedata)
 
-        # Process tracking
-        self.tracker.process_data(lights)
+        # Process tracking and update lights with position and velocity
+        lights = self.tracker.process_data(lights)
 
         lights_info = Cam4(lights=lights)
         self.light_pub.publish(lights_info)
@@ -311,7 +323,7 @@ if __name__ == '__main__':
                 current_time = datetime.now().strftime('%m%d%H%M%S%f')
                 frame = cam.get_frame()
                 # cv2.imshow('frame', frame)
-                cv2.imwrite(image_dir + current_time + ".png", frame)
+                # cv2.imwrite(image_dir + current_time + ".png", frame)
                 if frame is None:
                     continue
             except mvsdk.CameraException as e:

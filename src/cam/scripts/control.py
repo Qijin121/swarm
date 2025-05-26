@@ -7,7 +7,7 @@ import numpy as np
 
 rospy.init_node('simple_flocking_controller', anonymous=True)
 
-# 简化的Flocking参数
+# Flocking参数
 SEPARATION_DISTANCE = 0.8    # 分离距离
 ALIGNMENT_DISTANCE = 1.5     # 对齐距离  
 COHESION_DISTANCE = 2.0      # 聚集距离
@@ -31,12 +31,17 @@ def update_neighbors(data, cam_id):
     
     # 添加新数据
     for light in data.lights:
+        # 计算相对位置（相对于机器人）
+        relative_x = light.x
+        relative_y = light.y
+        distance = np.sqrt(relative_x**2 + relative_y**2)
+        
         neighbor = {
-            'x': light.x,
-            'y': light.y, 
-            'distance': light.distance,
-            'vel_x': getattr(light, 'velocity_x', 0),
-            'vel_y': getattr(light, 'velocity_y', 0),
+            'x': relative_x,
+            'y': relative_y,
+            'distance': distance,
+            'vel_x': light.vx,
+            'vel_y': light.vy,
             'cam': cam_id
         }
         all_neighbors.append(neighbor)
@@ -68,7 +73,7 @@ def calculate_alignment():
     for neighbor in all_neighbors:
         if neighbor['distance'] < ALIGNMENT_DISTANCE:
             align_x += neighbor['vel_x']
-            align_y += neighbor['vel_y'] 
+            align_y += neighbor['vel_y']
             count += 1
     
     if count > 0:
@@ -101,7 +106,7 @@ def calculate_flocking_velocity():
     
     # 计算三个flocking力
     sep_x, sep_y = calculate_separation()
-    align_x, align_y = calculate_alignment() 
+    align_x, align_y = calculate_alignment()
     cohes_x, cohes_y = calculate_cohesion()
     
     # 合并所有力
