@@ -15,7 +15,7 @@ from light_processing import LightLocalizer
 import pdb
 import time
 import sys
-sys.path.append('/home/li/IRSWARM_ws/devel/lib/python3/dist-packages')
+sys.path.append('/home/nvidia/swarm/devel/lib/python3/dist-packages')
 from cam.msg import LightInfo, Cam4, Detection, Dects,TrackStatus
 from ocsort import OCSort
 import threading

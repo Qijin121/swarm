@@ -3,7 +3,7 @@ import rospy
 from std_msgs.msg import Int32, String
 import threading
 import sys
-sys.path.append('/home/li/catkin_ws/devel/lib/python3/dist-packages')
+sys.path.append('/home/nvidia/swarm/devel/lib/python3/dist-packages')
 from cam.msg import TrackStatus
 
 class DecoderNode:
