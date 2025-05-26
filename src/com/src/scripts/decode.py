@@ -1,33 +1,42 @@
 #!/usr/bin/env python3
 import rospy
-from std_msgs.msg import Int32 ,String # 修改为发布 Int32 类型
+from std_msgs.msg import Int32, String
 import threading
 import sys
 sys.path.append('/home/li/catkin_ws/devel/lib/python3/dist-packages')
-from cam.msg import  TrackStatus  # 导入自定义消息类型
-
+from cam.msg import TrackStatus
 
 class DecoderNode:
-    def __init__(self, base_frequency=1, signal_length=11, repeat_count=3,ID=4):
+    def __init__(self, tracker_id, base_frequency=1, signal_length=11, repeat_count=3):
+        """
+        初始化解码器节点
+        :param tracker_id: 跟踪器ID (1-4)
+        :param base_frequency: 基础频率
+        :param signal_length: 信号长度
+        :param repeat_count: 重复次数
+        """
         # 初始化 ROS 节点
-        rospy.init_node('signal_decoder', anonymous=True)
+        rospy.init_node(f'signal_decoder_{tracker_id}', anonymous=True)
         
         # 订阅 tracker 话题
-        self.tracker_sub = rospy.Subscriber(f'tracker_{ID}', TrackStatus, self.tracker_callback)
+        self.tracker_sub = rospy.Subscriber(f'tracker_{tracker_id}', TrackStatus, self.tracker_callback)
         
-        # 发布解码后的消息话题，修改为 Int32 类型
-        self.decoded_pub = rospy.Publisher(f'/decoded_{ID}', Int32, queue_size=10)
+        # 发布解码后的消息话题
+        self.decoded_pub = rospy.Publisher(f'/decoded_{tracker_id}', Int32, queue_size=10)
         
-        # 示例输入参数
+        # 信号参数
         self.base_frequency = base_frequency
         self.signal_length = signal_length
         self.repeat_count = repeat_count
         self.packet = (self.base_frequency * self.signal_length * self.repeat_count)*3 + 8
         self.pattern = [1, 1, 0]  # 需要检测的模式
+        self.tracker_id = tracker_id
 
         # 初始化状态
         self.tracking_states = {}  # 用于存储每个 tracking_id 的状态
         self.lock = threading.Lock()  # 用于线程安全的锁
+
+        rospy.loginfo(f"Initialized decoder for tracker_{tracker_id}")
 
     def tracker_callback(self, data):
         """
@@ -304,10 +313,34 @@ class DecoderNode:
             rospy.logerr(f"Error decoding binary message: {e}")
             return None
 
-
-if __name__ == '__main__':
+def main():
     try:
-        decoder_node = DecoderNode()
+        # 创建命令行参数解析器
+        import argparse
+        parser = argparse.ArgumentParser(description='Signal Decoder Node')
+        parser.add_argument('--tracker_id', type=int, required=True, help='Tracker ID (1-4)')
+        parser.add_argument('--base_frequency', type=int, default=1, help='Base frequency')
+        parser.add_argument('--signal_length', type=int, default=11, help='Signal length')
+        parser.add_argument('--repeat_count', type=int, default=3, help='Repeat count')
+        
+        args = parser.parse_args()
+        
+        # 验证tracker_id
+        if not 1 <= args.tracker_id <= 4:
+            rospy.logerr("Tracker ID must be between 1 and 4")
+            return
+        
+        # 创建解码器节点
+        decoder_node = DecoderNode(
+            tracker_id=args.tracker_id,
+            base_frequency=args.base_frequency,
+            signal_length=args.signal_length,
+            repeat_count=args.repeat_count
+        )
+        
         rospy.spin()
     except rospy.ROSInterruptException:
         pass
+
+if __name__ == '__main__':
+    main()

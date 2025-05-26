@@ -11,19 +11,107 @@ import mvsdk
 import platform
 from scipy.io import savemat
 from datetime import datetime
-from cam.msg import LightInfo, Cam2
+from cam.msg import LightInfo, Cam2, Detection, Dects, TrackStatus
 from light_processing import LightLocalizer
 import pdb
 import time
+import sys
+sys.path.append('/home/li/IRSWARM_ws/devel/lib/python3/dist-packages')
+from ocsort import OCSort
+import threading
 
 
 Cam_ID = 18
+
+class Tracker:
+    def __init__(self, output_path, tracker_params):
+        self.output_path = output_path
+        self.tracker_params = tracker_params
+
+        self.tracker = OCSort(**tracker_params)
+        self.id_status = {}
+        self.frame_id = 0
+        self.lock = threading.Lock()
+
+        # 创建保存目录
+        os.makedirs(output_path, exist_ok=True)
+        self.id_status_file = f"{output_path}/id_status.txt"
+
+        # ROS发布者
+        self.tracking_pub = rospy.Publisher('/tracker_2', TrackStatus, queue_size=10)
+
+    def process_data(self, g_r_data):
+        """处理方向向量和距离数据"""
+        with self.lock:
+            current_ids = set()
+
+            if len(g_r_data) > 0:
+                # 构建检测数据 [(hat_g, hat_r, score)]
+                dets = []
+                for data in g_r_data:
+                    # 构建3维方向向量
+                    g = np.array([data.x, data.y, 0])
+                    g = g / np.linalg.norm(g)  # 归一化
+                    r = data.distance
+                    score = 1.0  # 设置检测置信度
+                    # 确保g是3维向量
+                    if len(g) == 3 and not np.any(np.isnan(g)) and not np.isnan(r):
+                        dets.append((g, r, score))
+                
+                if len(dets) > 0:
+                    # 更新跟踪器
+                    online_targets = self.tracker.update(dets)
+
+                    for t in online_targets:
+                        x, y, z, tid = t[:4]
+                        current_ids.add(tid)
+
+                        # 更新ID状态
+                        if tid not in self.id_status:
+                            self.id_status[tid] = []
+                        self.id_status[tid].append((self.frame_id, 1))
+
+                        # 发布跟踪消息
+                        track_msg = TrackStatus()
+                        track_msg.track_id = int(tid)
+                        track_msg.status = 1
+                        self.tracking_pub.publish(track_msg)
+
+            # 获取当前所有跟踪器的状态
+            tracked_states = self.tracker.get_state()
+            
+            # 处理持续跟踪的目标
+            if tracked_states:
+                for state in tracked_states:
+                    if len(state) >= 3:  # 确保有完整的坐标[x,y,z]
+                        x, y, z, tid = state[:4]
+                        if tid not in current_ids:
+                            # 更新ID状态
+                            if tid not in self.id_status:
+                                self.id_status[tid] = []
+                            self.id_status[tid].append((self.frame_id, 0))
+                            
+                            # 发布跟踪消息
+                            track_msg = TrackStatus()
+                            track_msg.track_id = tid
+                            track_msg.status = 0
+                            self.tracking_pub.publish(track_msg)
+
+            self.frame_id += 1
+
+    def save_id_status(self):
+        with self.lock:
+            with open(self.id_status_file, 'w') as f:
+                for tid, status in self.id_status.items():
+                    f.write(f"ID {tid}: {status}\n")
+            print(f"ID status saved to {self.id_status_file}")
 
 class Camera(object):
     def __init__(self, Cam_ID):
         rospy.init_node('Cam2_node', anonymous=True)
         self.bridge = CvBridge()
         self.light_pub = rospy.Publisher('/Cam2', Cam2, queue_size=100)
+        self.det_pub = rospy.Publisher('/Det2', Dects, queue_size=10)
         # initialize camera parameters
         self.DevList = []
         self.hCamera = 0
@@ -33,6 +121,7 @@ class Camera(object):
         self.exposure = 732
         self.pixel_sum = []
         self.pixel_loc = []
+        self.detections = []
         self.env_calue = 0
         self.frame_ave_value = 0
         self.frame_max_value = 0
@@ -41,6 +130,15 @@ class Camera(object):
         self.car_id = Cam_ID // 4
         self.cam_id = Cam_ID % 4 - 1
         
+        # Initialize tracker
+        output_path = "/home/li/tracking_results"
+        tracker_params = {
+            "det_thresh": 0.5,
+            "iou_threshold": 0.3,
+            "use_byte": False,
+        }
+        self.tracker = Tracker(output_path, tracker_params)
+
     def initialization(self):
         # 枚举相机
         self.DevList = mvsdk.CameraEnumerateDevice()
@@ -165,15 +263,21 @@ class Camera(object):
     def mask(self, frame, localizer, with_vicon = 0, savedata = False):
         if with_vicon == 0:
             # 调用 process_frame_without_vicon 方法
-            self.pixel_loc, self.pixel_sum, self.env_calue = localizer.process_frame_without_vicon(frame)
+            self.pixel_loc, self.pixel_sum, self.env_calue, self.detections = localizer.process_frame_without_vicon(frame)
         else:
-            self.pixel_loc, self.pixel_sum, self.env_calue = localizer.process_frame_with_vicon(frame, self.car_id, self.cam_id)
+            self.pixel_loc, self.pixel_sum, self.env_calue, self.detections = localizer.process_frame_with_vicon(frame, self.car_id, self.cam_id)
 
         # reproject method
         lights = localizer.reproject(self.pixel_loc, self.pixel_sum, self.exposure, self.env_calue, self.cam_id, savedata)
 
+        # Process tracking
+        self.tracker.process_data(lights)
+
         lights_info = Cam2(lights=lights)
         self.light_pub.publish(lights_info)
+
+        det_info = localizer.re_det(self.detections)
+        self.det_pub.publish(det_info)
 
     def release(self):
         # 关闭相机
@@ -181,7 +285,9 @@ class Camera(object):
 
         # 释放帧缓存
         mvsdk.CameraAlignFree(self.pFrameBuffer)
-    
+        
+        # 保存跟踪状态
+        self.tracker.save_id_status()
 
 
 if __name__ == '__main__':
