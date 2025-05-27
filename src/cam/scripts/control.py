@@ -9,14 +9,14 @@ rospy.init_node('simple_flocking_controller', anonymous=True)
 
 # Flocking参数
 SEPARATION_DISTANCE = 0.8    # 分离距离
-ALIGNMENT_DISTANCE = 1.5     # 对齐距离  
+ALIGNMENT_DISTANCE = 1.3     # 对齐距离  
 COHESION_DISTANCE = 2.0      # 聚集距离
 
-SEPARATION_WEIGHT = 2.0      # 分离权重（最重要，避免碰撞）
+SEPARATION_WEIGHT = 1.5     # 分离权重（最重要，避免碰撞）
 ALIGNMENT_WEIGHT = 1.0       # 对齐权重
 COHESION_WEIGHT = 0.8        # 聚集权重
 
-MAX_SPEED = 0.5              # 最大速度
+MAX_SPEED = 0.1              # 最大速度
 
 # 全局变量
 all_neighbors = []           # 存储所有邻居

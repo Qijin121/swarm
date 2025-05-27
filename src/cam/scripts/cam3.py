@@ -102,9 +102,8 @@ class Tracker:
                         light = LightInfo()
                         light.x = x
                         light.y = y
-                        light.distance = z
-                        light.velocity_x = vx
-                        light.velocity_y = vy
+                        light.vx = vx
+                        light.vy = vy
                         tracked_lights.append(light)
 
             self.frame_id += 1
@@ -285,8 +284,10 @@ class Camera(object):
         # Process tracking
         lights = self.tracker.process_data(lights)
 
-        lights_info = Cam3(lights=lights)
-        self.light_pub.publish(lights_info)
+        # 如果 lights 列表不为空，则创建并发布消息
+        if lights:
+            lights_info = Cam3(lights=lights)
+            self.light_pub.publish(lights_info)
 
         det_info = localizer.re_det(self.detections)
         self.det_pub.publish(det_info)

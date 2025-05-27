@@ -284,8 +284,10 @@ class Camera(object):
         # Process tracking and update lights with position and velocity
         lights = self.tracker.process_data(lights)
 
-        lights_info = Cam4(lights=lights)
-        self.light_pub.publish(lights_info)
+        # 如果 lights 列表不为空，则创建并发布消息
+        if lights:
+            lights_info = Cam4(lights=lights)
+            self.light_pub.publish(lights_info)
 
         det_info = localizer.re_det(self.detections)
         self.det_pub.publish(det_info)
