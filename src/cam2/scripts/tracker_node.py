@@ -5,7 +5,7 @@ import rospy
 import numpy as np
 import threading
 from datetime import datetime
-from cam.msg import LightInfo, Cam1, Cam2, Cam3, Cam4, TrackStatus,g_r
+from cam.msg import LightInfo, Cam1, Cam2, Cam3, Cam4, TrackStatus, g_r
 from ocsort import OCSort
 from message_filters import TimeSynchronizer, Subscriber
 from collections import deque
@@ -31,7 +31,7 @@ class UnifiedTracker:
         # ROS发布者
         self.tracking_pub = rospy.Publisher('/unified_tracker', TrackStatus, queue_size=10)
         # 添加一个统一的发布者，用于发布所有相机的跟踪结果
-        self.tracked_lights_pub = rospy.Publisher('/tracked_lights', Cam1, queue_size=10)
+        self.tracked_lights_pub = rospy.Publisher('/tracked_lights', g_r, queue_size=10)
 
     def check_sync(self, camera_id, msg_time):
         """检查消息时间是否在同步阈值内"""
@@ -149,7 +149,7 @@ class UnifiedTracker:
 
             # 发布所有跟踪后的消息到一个统一的话题
             if tracked_lights:
-                self.tracked_lights_pub.publish(Cam1(lights=tracked_lights))
+                self.tracked_lights_pub.publish(g_r(lights=tracked_lights))
 
             self.frame_id += 1
             
