@@ -11,13 +11,13 @@ import mvsdk
 import platform
 from scipy.io import savemat
 from datetime import datetime
-from cam.msg import LightInfo, Cam1, Detection, Dects
+
 from light_processing import LightLocalizer
 import pdb
 import time
 import sys
 sys.path.append('/home/nvidia/swarm/devel/lib/python3/dist-packages')
-
+from cam.msg import LightInfo, Cam1, Detection, Dects
 Cam_ID = 9
 
 class Camera(object):

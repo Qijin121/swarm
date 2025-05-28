@@ -59,6 +59,7 @@ add_message_files(
   TrackStatus.msg
   Detection.msg
   g_r.msg
+  Tracker.msg
 )
 
 ## Generate services in the 'srv' folder

@@ -5,7 +5,7 @@ from geometry_msgs.msg import TransformStamped
 import rospy
 import tf
 import sys
-sys.path.append('/home/li/IRSWARM_ws/devel/lib/python3/dist-packages')
+sys.path.append('/home/nvidia/swarm/swarm/devel/lib/python3/dist-packages')
 from cam.msg import LightInfo,Detection, Dects,g_r
 import math as m
 

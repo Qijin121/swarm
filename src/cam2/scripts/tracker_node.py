@@ -5,7 +5,9 @@ import rospy
 import numpy as np
 import threading
 from datetime import datetime
-from cam.msg import LightInfo, Cam1, Cam2, Cam3, Cam4, TrackStatus, g_r
+import sys
+sys.path.append('/home/nvidia/swarm/swarm/devel/lib/python3/dist-packages')
+from cam.msg import LightInfo, Cam1, Cam2, Cam3, Cam4, TrackStatus, g_r,Tracker
 from ocsort import OCSort
 from message_filters import TimeSynchronizer, Subscriber
 from collections import deque
@@ -31,7 +33,7 @@ class UnifiedTracker:
         # ROS发布者
         self.tracking_pub = rospy.Publisher('/unified_tracker', TrackStatus, queue_size=10)
         # 添加一个统一的发布者，用于发布所有相机的跟踪结果
-        self.tracked_lights_pub = rospy.Publisher('/tracked_lights', g_r, queue_size=10)
+        self.tracked_lights_pub = rospy.Publisher('/tracked_lights', Tracker, queue_size=10)
 
     def check_sync(self, camera_id, msg_time):
         """检查消息时间是否在同步阈值内"""
@@ -126,6 +128,7 @@ class UnifiedTracker:
                 for state in tracked_states:
                     if len(state) >= 3:  # 确保有完整的坐标[x,y,z]
                         x, y, z, tid, vx, vy, vz = state
+                        rospy.loginfo(f"[Tracker] Frame {self.frame_id}: Tracked ID {int(tid)} at position ({x:.2f}, {y:.2f}, {z:.2f}) with velocity ({vx:.2f}, {vy:.2f})")
                         if tid not in current_ids:
                             # 更新ID状态
                             if tid not in self.id_status:
@@ -149,7 +152,7 @@ class UnifiedTracker:
 
             # 发布所有跟踪后的消息到一个统一的话题
             if tracked_lights:
-                self.tracked_lights_pub.publish(g_r(lights=tracked_lights))
+                self.tracked_lights_pub.publish(Tracker(lights=tracked_lights))
 
             self.frame_id += 1
             
