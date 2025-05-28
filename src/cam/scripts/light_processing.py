@@ -153,7 +153,9 @@ class LightLocalizer():
             'pixel_sum': [],
             'pixel_loc': [],
             'cam_exp': [],
-            'env_value': []
+            'env_value': [],
+            'KF_pose': [],
+            'KF_vel': []
         }
 
     def car1_callback(self, msg):
@@ -435,6 +437,12 @@ class LightLocalizer():
         self.true_data['cam_exp'].append(exposure)
         self.true_data['env_value'].append(env_calue)
         
+    def saveKFdata(self, lights):
+        for light in lights:
+            # light里面是一个列表，存贮了【x, y, vx, vy】
+            self.true_data['KF_pose'].append([light[0], light[1], 0])  # 假设z轴位置为0
+            self.true_data['KF_vel'].append([light[2], light[3], 0])  # 假设z轴速度为0
+            
 
 def main():
 	lightlocalizer = LightLocalizer()

@@ -283,13 +283,14 @@ class Camera(object):
 
         # Process tracking
         lights = self.tracker.process_data(lights)
+        localizer.saveKFdata(lights)
 
         if lights:
             lights_info = Cam1(lights=lights)
             self.light_pub.publish(lights_info)
 
-            det_info = localizer.re_det(self.detections)
-            self.det_pub.publish(det_info)
+            # det_info = localizer.re_det(self.detections)
+            # self.det_pub.publish(det_info)
 
     def release(self):
         # 关闭相机
