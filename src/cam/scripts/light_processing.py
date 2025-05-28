@@ -5,8 +5,8 @@ from geometry_msgs.msg import TransformStamped
 import rospy
 import tf
 import sys
-sys.path.append('/home/li/IRSWARM_ws/devel/lib/python3/dist-packages')
-from cam.msg import LightInfo,Detection, Dects,g_r
+sys.path.append('/home/nvidia/swarm/devel/lib/python3/dist-packages')
+from cam.msg import LightInfo, Detection, Dects,g_r
 import math as m
 
 # 外参矩阵
@@ -168,6 +168,8 @@ class LightLocalizer():
     def car2_callback(self, msg):
         # vicon消息
         self.T_car2_to_vicon = get_homogenious(msg.transform.rotation, msg.transform.translation)
+        self.dis1_2 = record_distance(self.T_car1_to_vicon[0:3, 3], self.T_car3_to_vicon[0:3, 3])
+        print('true dis:', self.dis1_2)
     
     def car3_callback(self, msg):
         # vicon消息
@@ -437,11 +439,9 @@ class LightLocalizer():
         self.true_data['cam_exp'].append(exposure)
         self.true_data['env_value'].append(env_calue)
         
-    def saveKFdata(self, lights):
-        for light in lights:
-            # light里面是一个列表，存贮了【x, y, vx, vy】
-            self.true_data['KF_pose'].append([light[0], light[1], 0])  # 假设z轴位置为0
-            self.true_data['KF_vel'].append([light[2], light[3], 0])  # 假设z轴速度为0
+    def saveKFdata(self, light_pose, light_vel):
+        self.true_data['KF_pose'].append(light_pose)
+        self.true_data['KF_vel'].append(light_vel)
             
 
 def main():

@@ -45,6 +45,8 @@ class Tracker:
         with self.lock:
             current_ids = set()
             tracked_lights = []  # 创建新的lights列表
+            light_pose = []
+            light_vel = []
 
             if len(g_r_data) > 0:
                 # 构建检测数据 [(hat_g, hat_r, score)]
@@ -106,8 +108,12 @@ class Tracker:
                         light.vy = vy
                         tracked_lights.append(light)
 
+                        light_pose.append([x, y, 0])
+                        light_vel.append([vx, vy, 0])
+
             self.frame_id += 1
             
+            localizer.saveKFdata(light_pose, light_vel)
             return tracked_lights
 
     def save_id_status(self):
@@ -283,7 +289,6 @@ class Camera(object):
 
         # Process tracking
         lights = self.tracker.process_data(lights)
-        localizer.saveKFdata(lights)
 
         if lights:
             lights_info = Cam1(lights=lights)
