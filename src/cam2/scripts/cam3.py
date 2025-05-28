@@ -11,6 +11,7 @@ import mvsdk
 import platform
 from scipy.io import savemat
 from datetime import datetime
+from std_msgs.msg import Header
 from cam.msg import LightInfo, Cam3, Detection, Dects
 from light_processing import LightLocalizer
 import pdb
@@ -18,7 +19,7 @@ import time
 import sys
 sys.path.append('/home/nvidia/swarm/devel/lib/python3/dist-packages')
 
-Cam_ID = 11
+Cam_ID = 15
 
 class Camera(object):
     def __init__(self, Cam_ID):
@@ -174,8 +175,12 @@ class Camera(object):
 
         # reproject method
         lights = localizer.reproject(self.pixel_loc, self.pixel_sum, self.exposure, self.env_calue, self.cam_id, savedata)
-
+        # 获取当前 ROS 时间
+        current_ros_time = rospy.Time.now()
         lights_info = Cam3(lights=lights)
+                # 设置消息头的时间戳
+        lights_info.header = Header()
+        lights_info.header.stamp = current_ros_time
         self.light_pub.publish(lights_info)
 
         det_info = localizer.re_det(self.detections)

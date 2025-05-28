@@ -4,13 +4,13 @@ import os
 import rospy
 import numpy as np
 import threading
-from datetime import datetime
+# from datetime import datetime # Not needed for manual time sync
 import sys
-sys.path.append('/home/nvidia/swarm/swarm/devel/lib/python3/dist-packages')
+sys.path.append('/home/nvidia/swarm/devel/lib/python3/dist-packages')
 from cam.msg import LightInfo, Cam1, Cam2, Cam3, Cam4, TrackStatus, g_r,Tracker
 from ocsort import OCSort
-from message_filters import TimeSynchronizer, Subscriber
-from collections import deque
+from message_filters import ApproximateTimeSynchronizer, Subscriber
+# from collections import deque # Not needed for manual buffering
 
 class UnifiedTracker:
     def __init__(self, output_path, tracker_params):
@@ -20,11 +20,23 @@ class UnifiedTracker:
         self.id_status = {}
         self.frame_id = 0
         self.lock = threading.Lock()
-        self.camera_ready = {1: False, 2: False, 3: False, 4: False}
-        self.first_frame_time = None
-        self.sync_threshold = 0.1  # 100ms 同步阈值
-        self.message_buffer = {1: deque(maxlen=10), 2: deque(maxlen=10), 
-                             3: deque(maxlen=10), 4: deque(maxlen=10)}
+
+        # 存储每个相机的最新消息数据
+        self.latest_camera_data = {
+            1: None,
+            2: None,
+            3: None,
+            4: None,
+        }
+        # 标记每个相机是否收到了新消息，用于在第一次同步后进行处理触发
+        self.new_message_flags = {
+            1: False,
+            2: False,
+            3: False,
+            4: False,
+        }
+        self.first_sync_done = False # 标志位，标记第一次同步是否完成
+
 
         # 创建保存目录
         os.makedirs(output_path, exist_ok=True)
@@ -35,141 +47,132 @@ class UnifiedTracker:
         # 添加一个统一的发布者，用于发布所有相机的跟踪结果
         self.tracked_lights_pub = rospy.Publisher('/tracked_lights', Tracker, queue_size=10)
 
-    def check_sync(self, camera_id, msg_time):
-        """检查消息时间是否在同步阈值内"""
-        if self.first_frame_time is None:
-            self.first_frame_time = msg_time
-            self.camera_ready[camera_id] = True
-            return True
-        
-        time_diff = abs(msg_time - self.first_frame_time)
-        if time_diff <= self.sync_threshold:
-            self.camera_ready[camera_id] = True
-            return True
-        return False
 
-    def all_cameras_ready(self):
-        """检查是否所有相机都已准备就绪"""
-        return all(self.camera_ready.values())
+    def all_new_messages_received(self):
+        """检查是否所有相机都收到了新消息"""
+        return all(self.new_message_flags.values())
 
-    def process_data(self, g_r_data, camera_id, msg_time):
-        """处理方向向量和距离数据"""
+    def reset_new_message_flags(self):
+        """重置所有相机的新消息标志"""
+        self.new_message_flags = {1: False, 2: False, 3: False, 4: False}
+
+
+    # 修改 process_data 来处理所有相机当前最新的数据
+    def process_data(self):
+        """使用所有相机当前最新的方向向量和距离数据进行处理"""
+        # Using frame_id for logging to distinguish processing cycles
+        # rospy.loginfo(f"Processing data for frame {self.frame_id}. Attempting to acquire lock.")
         with self.lock:
-            # 将消息存入缓冲区
-            self.message_buffer[camera_id].append((g_r_data, msg_time))
-            
-            # 检查时间同步
-            if not self.check_sync(camera_id, msg_time):
-                return []
-
-            # 如果所有相机都未就绪，等待
-            if not self.all_cameras_ready():
-                return []
-
-            # 获取所有相机的最新消息
-            latest_messages = {}
-            for cam_id in range(1, 5):
-                if self.message_buffer[cam_id]:
-                    latest_messages[cam_id] = self.message_buffer[cam_id][-1]
-
-            # 检查是否所有相机都有消息
-            if len(latest_messages) < 4:
-                return []
-
-            # 检查消息时间是否同步
-            times = [msg[1] for msg in latest_messages.values()]
-            max_time_diff = max(times) - min(times)
-            if max_time_diff > self.sync_threshold:
-                return []
+            # Use frame_id in acquired lock log as well
+            # rospy.loginfo(f"Lock acquired for frame {self.frame_id} at {rospy.Time.now().to_sec()}.")
 
             current_ids = set()
             tracked_lights = []
+            all_dets = [] # Collect all detections from all cameras
 
-            # 处理所有相机的数据
-            for cam_id, (data, _) in latest_messages.items():
-                if len(data) > 0:
-                    # 构建检测数据 [(hat_g, hat_r, score)]
-                    dets = []
-                    for light_data in data:
-                        # 构建3维方向向量
-                        g = np.array([light_data.x, light_data.y, 0])
-                        g = g / np.linalg.norm(g)  # 归一化
-                        r = light_data.distance
-                        score = 1.0  # 设置检测置信度
-                        # 确保g是3维向量
-                        if len(g) == 3 and not np.any(np.isnan(g)) and not np.isnan(r):
-                            dets.append((g, r, score))
-                    
-                    if len(dets) > 0:
-                        # 更新跟踪器
-                        online_targets = self.tracker.update(dets)
+            # Process data from each camera using the latest stored data
+            has_any_data_this_frame = False # Check if there's any valid light data to process
+            for cam_id in range(1, 5):
+                 g_r_data = self.latest_camera_data[cam_id] # Get the latest data for this camera
 
-                        for t in online_targets:
-                            x, y, z, tid = t[:4]
-                            current_ids.add(tid)
+                 if g_r_data: # Check if the data for this camera is not empty
+                     # has_any_data_this_frame = True # This check needs to be done after building dets
 
-                            # 更新ID状态
-                            if tid not in self.id_status:
-                                self.id_status[tid] = []
-                            self.id_status[tid].append((self.frame_id, 1))
+                     # Build detection data [(hat_g, hat_r, score)]
+                     dets = []
+                     for light_data in g_r_data:
+                         # Build 3D direction vector
+                         g = np.array([light_data.x, light_data.y, 0])
+                         g_norm = np.linalg.norm(g)
+                         if g_norm > 0: # Avoid division by zero
+                            g = g / g_norm  # Normalize
+                         else:
+                            rospy.logwarn(f"Camera {cam_id} received zero vector for light data in frame {self.frame_id}.")
+                            continue # Skip invalid data
 
-                            # 发布跟踪消息
-                            track_msg = TrackStatus()
-                            track_msg.track_id = int(tid)
-                            track_msg.status = 1
-                            track_msg.camera_id = cam_id
-                            self.tracking_pub.publish(track_msg)
+                         r = light_data.distance
+                         score = 1.0  # Set detection confidence
+                         # Ensure g is a 3D vector and data is valid
+                         if len(g) == 3 and not np.any(np.isnan(g)) and not np.isnan(r):
+                             dets.append((g, r, score))
+                         else:
+                             rospy.logwarn(f"Camera {cam_id} received invalid data (NaN or wrong dim) in frame {self.frame_id}: g={g}, r={r}")
 
-            # 获取当前所有跟踪器的状态
-            tracked_states = self.tracker.get_state()
-            
-            # 处理持续跟踪的目标
-            if tracked_states:
-                for state in tracked_states:
-                    if len(state) >= 3:  # 确保有完整的坐标[x,y,z]
-                        x, y, z, tid, vx, vy, vz = state
-                        rospy.loginfo(f"[Tracker] Frame {self.frame_id}: Tracked ID {int(tid)} at position ({x:.2f}, {y:.2f}, {z:.2f}) with velocity ({vx:.2f}, {vy:.2f})")
-                        if tid not in current_ids:
-                            # 更新ID状态
-                            if tid not in self.id_status:
-                                self.id_status[tid] = []
-                            self.id_status[tid].append((self.frame_id, 0))
-                            
-                            # 发布跟踪消息
-                            track_msg = TrackStatus()
-                            track_msg.track_id = tid
-                            track_msg.status = 0
-                            track_msg.camera_id = camera_id
-                            self.tracking_pub.publish(track_msg)
-                        
-                        # 创建新的light数据
-                        light = LightInfo()
-                        light.x = x
-                        light.y = y
-                        light.vx = vx
-                        light.vy = vy
-                        tracked_lights.append(light)
+                     if dets: # If there are valid detections for this camera
+                          all_dets.extend(dets) # Add to the total detections list
 
-            # 发布所有跟踪后的消息到一个统一的话题
+            # Check if there's any data to process after collecting from all cameras
+            if len(all_dets) > 0:
+                 has_any_data_this_frame = True
+
+            # Update tracker with all detections from the current data snapshot
+            if all_dets:
+                 online_targets = self.tracker.update(all_dets)
+
+                 for t in online_targets:
+                     # Ensure tracked result has enough dimensions
+                     if len(t) >= 4:
+                         x, y, z, tid = t[:4]
+                         current_ids.add(tid)
+
+                         # Update ID status (consider how to record status per frame)
+                         if tid not in self.id_status:
+                             self.id_status[tid] = []
+                         # Example: self.id_status[tid].append((self.frame_id, 1)) # Record frame ID and status
+
+                         # Publish tracking message (optional, depending on need for per-camera status)
+                         # If /unified_tracker is for overall track status, this should be based on final tracks, not per detection.
+                         # track_msg = TrackStatus()
+                         # track_msg.track_id = int(tid)
+                         # track_msg.status = 1 # 1 means tracked
+                         # track_msg.camera_id = ? # This might not be meaningful here
+                         # self.tracking_pub.publish(track_msg)
+
+                         # Create new light data for /tracked_lights_pub
+                         light = LightInfo()
+                         light.x = x
+                         light.y = y
+                         # Get velocity from tracker state if available
+                         if len(t) >= 6:
+                              light.vx = t[4]
+                              light.vy = t[5]
+                         else:
+                              light.vx = 0.0
+                              light.vy = 0.0 # Or other default
+                         tracked_lights.append(light)
+
+            # Publish all tracked lights for the frame
             if tracked_lights:
                 self.tracked_lights_pub.publish(Tracker(lights=tracked_lights))
+                rospy.loginfo(f"Published {len(tracked_lights)} tracked lights for frame {self.frame_id}.")
+            elif has_any_data_this_frame: # Log only if there was input data but no tracked lights
+                 rospy.loginfo(f"Processed frame {self.frame_id}, had input data, but no lights tracked.")
+            else: # Log if callback triggered but no cameras had any data
+                 rospy.loginfo(f"Processed frame {self.frame_id}, but no cameras had any data.")
+
+
+            # Handle targets not detected in this frame but still tracked (if needed)
+            # This depends on OCSort providing access to all current tracks.
+            # You would iterate through all tracks and publish status=0 for those not in current_ids.
 
             self.frame_id += 1
-            
-            return tracked_lights
+
+            # rospy.loginfo(f"Lock released for frame {self.frame_id-1} at {rospy.Time.now().to_sec()}.")
 
     def save_id_status(self):
         with self.lock:
             with open(self.id_status_file, 'w') as f:
                 for tid, status in self.id_status.items():
+                    # Adjust status saving based on how you track ID status
                     f.write(f"ID {tid}: {status}\n")
             print(f"ID status saved to {self.id_status_file}")
+
 
 class TrackerNode:
     def __init__(self):
         rospy.init_node('unified_tracker_node', anonymous=True)
-        
-        # 初始化统一跟踪器
+
+        # Initialize unified tracker
         output_path = "/home/nvidia/swarm/tracking_results"
         tracker_params = {
             "det_thresh": 0.5,
@@ -177,33 +180,112 @@ class TrackerNode:
             "use_byte": False,
         }
         self.tracker = UnifiedTracker(output_path, tracker_params)
-        
-        # 使用 TimeSynchronizer 订阅所有相机的消息
-        self.cam1_sub = Subscriber('/Cam1', Cam1)
-        self.cam2_sub = Subscriber('/Cam2', Cam2)
-        self.cam3_sub = Subscriber('/Cam3', Cam3)
-        self.cam4_sub = Subscriber('/Cam4', Cam4)
 
-        # 创建时间同步器
-        self.ts = TimeSynchronizer(
-            [self.cam1_sub, self.cam2_sub, self.cam3_sub, self.cam4_sub],
-            queue_size=100
+        # ApproximateTimeSynchronizer slop can be adjusted based on acceptable time difference
+        # queue_size should be large enough
+        sync_slop = 0.05 # Example value, may need tuning
+
+        # *** Initial synchronization using ApproximateTimeSynchronizer ***
+        self.cam1_sub_sync = Subscriber('/Cam1', Cam1)
+        self.cam2_sub_sync = Subscriber('/Cam2', Cam2)
+        self.cam3_sub_sync = Subscriber('/Cam3', Cam3)
+        self.cam4_sub_sync = Subscriber('/Cam4', Cam4)
+
+        self.ts = ApproximateTimeSynchronizer(
+            [self.cam1_sub_sync, self.cam2_sub_sync, self.cam3_sub_sync, self.cam4_sub_sync],
+            queue_size=100,
+            slop=sync_slop
         )
-        self.ts.registerCallback(self.sync_callback)
+        self.ts.registerCallback(self.initial_sync_callback)
 
-    def sync_callback(self, cam1_msg, cam2_msg, cam3_msg, cam4_msg):
-        """同步处理所有相机的消息"""
-        current_time = rospy.Time.now().to_sec()
-        
-        # 处理每个相机的数据
-        if cam1_msg.lights:
-            self.tracker.process_data(cam1_msg.lights, 1, current_time)
-        if cam2_msg.lights:
-            self.tracker.process_data(cam2_msg.lights, 2, current_time)
-        if cam3_msg.lights:
-            self.tracker.process_data(cam3_msg.lights, 3, current_time)
-        if cam4_msg.lights:
-            self.tracker.process_data(cam4_msg.lights, 4, current_time)
+        # *** Individual subscribers (will be created after initial sync) ***
+        # Use large queue size for individual subscribers to not drop messages
+        self.individual_queue_size = 100
+        self.cam1_sub_individual = None
+        self.cam2_sub_individual = None
+        self.cam3_sub_individual = None
+        self.cam4_sub_individual = None
+
+
+    def initial_sync_callback(self, cam1_msg, cam2_msg, cam3_msg, cam4_msg):
+        """Callback for the initial synchronization."""
+        rospy.loginfo("Initial sync callback triggered.")
+
+        if not self.tracker.first_sync_done:
+            # Store the data from the first synchronized messages
+            self.tracker.latest_camera_data[1] = cam1_msg.lights if (cam1_msg and hasattr(cam1_msg, 'lights')) else None
+            self.tracker.latest_camera_data[2] = cam2_msg.lights if (cam2_msg and hasattr(cam2_msg, 'lights')) else None
+            self.tracker.latest_camera_data[3] = cam3_msg.lights if (cam3_msg and hasattr(cam3_msg, 'lights')) else None
+            self.tracker.latest_camera_data[4] = cam4_msg.lights if (cam4_msg and hasattr(cam4_msg, 'lights')) else None
+
+            # Process the first synchronized data
+            # Only process if there is any data from any camera in the first sync
+            has_any_initial_data = False
+            for data in self.tracker.latest_camera_data.values():
+                if data is not None and len(data) > 0:
+                    has_any_initial_data = True
+                    break
+
+            if has_any_initial_data:
+                 self.tracker.process_data()
+                 rospy.loginfo("Processed initial synchronized data.")
+            else:
+                 rospy.logwarn("Initial sync triggered but no cameras had light data. Will wait for individual messages.")
+
+
+            # Set the flag regardless of whether there was data, to switch modes
+            self.tracker.first_sync_done = True
+            rospy.loginfo("First sync completed. Switching to individual subscribers.")
+
+            # Unsubscribe the TimeSynchronizer subscribers
+            # Give a small delay to ensure any pending messages in the sync queue are processed
+            rospy.sleep(0.1) # Adjust delay if needed
+            self.cam1_sub_sync.unregister()
+            self.cam2_sub_sync.unregister()
+            self.cam3_sub_sync.unregister()
+            self.cam4_sub_sync.unregister()
+            rospy.loginfo("Unregistered initial sync subscribers.")
+
+            # Create individual subscribers
+            self.cam1_sub_individual = Subscriber('/Cam1', Cam1, queue_size=self.individual_queue_size, callback=lambda msg: self.individual_camera_callback(msg, 1))
+            self.cam2_sub_individual = Subscriber('/Cam2', Cam2, queue_size=self.individual_queue_size, callback=lambda msg: self.individual_camera_callback(msg, 2))
+            self.cam3_sub_individual = Subscriber('/Cam3', Cam3, queue_size=self.individual_queue_size, callback=lambda msg: self.individual_camera_callback(msg, 3))
+            self.cam4_sub_individual = Subscriber('/Cam4', Cam4, queue_size=self.individual_queue_size, callback=lambda msg: self.individual_camera_callback(msg, 4))
+            rospy.loginfo("Created individual subscribers.")
+
+        # Note: After the first sync, this callback might still be triggered
+        # for any remaining messages in the TimeSynchronizer's queue, but the
+        # 'if not self.tracker.first_sync_done:' check prevents reprocessing.
+
+
+    def individual_camera_callback(self, msg, camera_id):
+        """Callback for individual camera subscribers."""
+        # Check if first sync is done before processing
+        if not self.tracker.first_sync_done:
+             # This should not happen if unregister works correctly, but as a safeguard
+             rospy.logwarn(f"Received individual message from Camera {camera_id} before first sync completed.")
+             return # Ignore messages before first sync is done
+
+        # Store the latest data for this camera
+        self.tracker.latest_camera_data[camera_id] = msg.lights if (msg and hasattr(msg, 'lights')) else None
+
+        # Mark this camera as having received a new message
+        self.tracker.new_message_flags[camera_id] = True
+        # rospy.loginfo(f"Received new message from Camera {camera_id} at {msg.header.stamp.to_sec()}. Flags: {self.tracker.new_message_flags}")
+
+
+        # Check if all cameras have received a new message since the last processing
+        if self.tracker.all_new_messages_received():
+            rospy.loginfo(f"New messages received from all cameras. Triggering processing for frame {self.tracker.frame_id}.")
+            # Trigger processing with the latest data from all cameras
+            self.tracker.process_data()
+            # Reset the new message flags for the next cycle
+            self.tracker.reset_new_message_flags()
+            # rospy.loginfo(f"Flags reset: {self.tracker.new_message_flags}")
+        # else:
+            # Optional: Log if waiting for other cameras
+            # rospy.loginfo(f"Waiting for messages from other cameras. Current flags: {self.tracker.new_message_flags}")
+
 
     def run(self):
         rospy.spin()
@@ -211,8 +293,10 @@ class TrackerNode:
 if __name__ == '__main__':
     try:
         tracker_node = TrackerNode()
-        tracker_node.run()
+        rospy.spin() # Use rospy.spin() here to keep the node alive
     except rospy.ROSInterruptException:
         pass
     finally:
-        tracker_node.tracker.save_id_status() 
+        # Save status before shutting down
+        if 'tracker_node' in locals() and hasattr(tracker_node, 'tracker'):
+             tracker_node.tracker.save_id_status() 
