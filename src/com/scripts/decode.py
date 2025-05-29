@@ -7,7 +7,7 @@ sys.path.append('/home/nvidia/swarm/devel/lib/python3/dist-packages')
 from cam.msg import TrackStatus
 
 class DecoderNode:
-    def __init__(self,  base_frequency=1, signal_length=11, repeat_count=3):
+    def __init__(self, base_frequency=1, signal_length=11, repeat_count=3):
         """
         初始化解码器节点
         :param tracker_id: 跟踪器ID (1-4)
@@ -19,7 +19,7 @@ class DecoderNode:
         rospy.init_node(f'signal_decoder', anonymous=True)
         
         # 订阅 tracker 话题
-        self.tracker_sub = rospy.Subscriber(f'tracker', TrackStatus, self.tracker_callback)
+        self.tracker_sub = rospy.Subscriber(f'/unified_tracker', TrackStatus, self.tracker_callback)
         
         # 发布解码后的消息话题
         self.decoded_pub = rospy.Publisher(f'/decoded', Int32, queue_size=10)
