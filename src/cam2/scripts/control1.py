@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import rospy
-from cam.msg import Cam1,Lightinfo
+from cam.msg import Cam1,LightInfo,Tracker
 from geometry_msgs.msg import Twist
 import numpy as np
 
@@ -26,7 +26,7 @@ class FlockingController:
         self.velocity_publisher = rospy.Publisher('/robot/velcmd', Twist, queue_size=10)
         
         # 订阅统一的跟踪结果话题
-        rospy.Subscriber('/tracked_lights', Cam1, self.callback)
+        rospy.Subscriber('/tracked_lights',Tracker, self.callback)
         
         rospy.loginfo("Simple Flocking Controller Started")
         rospy.loginfo("Rules: Separation + Alignment + Cohesion")

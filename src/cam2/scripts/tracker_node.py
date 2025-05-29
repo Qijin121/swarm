@@ -131,7 +131,7 @@ class TrackerNode:
 
         # 创建定时器，4秒后开始订阅
         rospy.loginfo("Waiting 4 seconds before subscribing to camera topics...")
-        rospy.Timer(rospy.Duration(4.0), self.start_subscriptions, oneshot=True)
+        rospy.Timer(rospy.Duration(6.0), self.start_subscriptions, oneshot=True)
 
     def start_subscriptions(self, event):
         """4秒后开始订阅相机话题"""

@@ -394,7 +394,7 @@ class LightLocalizer():
             distance = self.pixel_sum_to_distance(pixel_sum[i], exposure, env_calue)
             p_car = self.pixel_to_car_coordinates(u, v, distance, cam_id)
             lights.append(g_r(x=p_car[0], y=p_car[1], distance=distance))
-            print(f'x={p_car[0]}, y={p_car[1]}, distance={distance}')
+            print(f'cam_id={cam_id}.x={p_car[0]}, y={p_car[1]}, distance={distance}')
             print(self.dis1_2)
             loc.append([p_car[0], p_car[1]])
             dis.append(distance)
