@@ -175,12 +175,8 @@ class Camera(object):
         # reproject method
         lights = localizer.reproject(self.pixel_loc, self.pixel_sum, self.exposure, self.env_calue, self.cam_id, savedata)
 
-        # 获取当前 ROS 时间
-        current_ros_time = rospy.Time.now()
+        # 发布消息
         lights_info = Cam1(lights=lights)
-                # 设置消息头的时间戳
-        lights_info.header = Header()
-        lights_info.header.stamp = current_ros_time
         self.light_pub.publish(lights_info)
 
         det_info = localizer.re_det(self.detections)

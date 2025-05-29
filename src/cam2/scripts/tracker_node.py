@@ -9,6 +9,7 @@ sys.path.append('/home/nvidia/swarm/devel/lib/python3/dist-packages')
 from cam.msg import LightInfo, Cam1, Cam2, Cam3, Cam4, TrackStatus, g_r,Tracker
 from ocsort import OCSort
 from collections import deque
+from std_msgs.msg import Header
 
 class UnifiedTracker:
     def __init__(self, output_path, tracker_params):
@@ -52,7 +53,7 @@ class UnifiedTracker:
 
                 if g_r_data:
                     dets = []
-                    for light_data in g_r_data:
+                    for light_data in g_r_data.lights:
                         g = np.array([light_data.x, light_data.y, 0])
                         g_norm = np.linalg.norm(g)
                         if g_norm > 0:
@@ -122,17 +123,56 @@ class TrackerNode:
         }
         self.tracker = UnifiedTracker(output_path, tracker_params)
 
-        # 创建订阅者
-        self.cam1_sub = rospy.Subscriber('/Cam1', Cam1, lambda msg: self.camera_callback(msg, 1), queue_size=100)
-        self.cam2_sub = rospy.Subscriber('/Cam2', Cam2, lambda msg: self.camera_callback(msg, 2), queue_size=100)
-        self.cam3_sub = rospy.Subscriber('/Cam3', Cam3, lambda msg: self.camera_callback(msg, 3), queue_size=100)
-        self.cam4_sub = rospy.Subscriber('/Cam4', Cam4, lambda msg: self.camera_callback(msg, 4), queue_size=100)
+        # 初始化订阅者为None
+        self.cam1_sub = None
+        self.cam2_sub = None
+        self.cam3_sub = None
+        self.cam4_sub = None
+
+        # 创建定时器，4秒后开始订阅
+        rospy.loginfo("Waiting 4 seconds before subscribing to camera topics...")
+        rospy.Timer(rospy.Duration(4.0), self.start_subscriptions, oneshot=True)
+
+    def start_subscriptions(self, event):
+        """4秒后开始订阅相机话题"""
+        rospy.loginfo("Starting camera subscriptions...")
+        
+        # 等待并获取每个话题的最新消息
+        try:
+            rospy.loginfo("Waiting for initial messages from all cameras...")
+            msg1 = rospy.wait_for_message('/Cam1', Cam1, timeout=0.1)
+            msg2 = rospy.wait_for_message('/Cam2', Cam2, timeout=0.1)
+            msg3 = rospy.wait_for_message('/Cam3', Cam3, timeout=0.1)
+            msg4 = rospy.wait_for_message('/Cam4', Cam4, timeout=0.1)
+            rospy.loginfo("Received initial messages from all cameras")
+            
+            # 清空所有相机的队列，确保从最新状态开始
+            for cam_id in range(1, 5):
+                self.tracker.camera_queues[cam_id].clear()
+            
+            # 创建正式的订阅者
+            self.cam1_sub = rospy.Subscriber('/Cam1', Cam1, lambda msg: self.camera_callback(msg, 1), queue_size=100)
+            self.cam2_sub = rospy.Subscriber('/Cam2', Cam2, lambda msg: self.camera_callback(msg, 2), queue_size=100)
+            self.cam3_sub = rospy.Subscriber('/Cam3', Cam3, lambda msg: self.camera_callback(msg, 3), queue_size=100)
+            self.cam4_sub = rospy.Subscriber('/Cam4', Cam4, lambda msg: self.camera_callback(msg, 4), queue_size=100)
+            
+            rospy.loginfo("All camera subscriptions started successfully")
+            
+        except rospy.ROSException as e:
+            rospy.logerr(f"Error during initialization: {str(e)}")
+            rospy.logwarn("Continuing with subscriptions despite timeout...")
+            
+            # 即使超时也创建订阅者
+            self.cam1_sub = rospy.Subscriber('/Cam1', Cam1, lambda msg: self.camera_callback(msg, 1), queue_size=100)
+            self.cam2_sub = rospy.Subscriber('/Cam2', Cam2, lambda msg: self.camera_callback(msg, 2), queue_size=100)
+            self.cam3_sub = rospy.Subscriber('/Cam3', Cam3, lambda msg: self.camera_callback(msg, 3), queue_size=100)
+            self.cam4_sub = rospy.Subscriber('/Cam4', Cam4, lambda msg: self.camera_callback(msg, 4), queue_size=100)
 
     def camera_callback(self, msg, camera_id):
         """处理单个相机的回调"""
         # 将新数据添加到对应相机的队列中
         if msg and hasattr(msg, 'lights'):
-            self.tracker.camera_queues[camera_id].append(msg.lights)
+            self.tracker.camera_queues[camera_id].append(msg)
             # 尝试处理数据
             self.tracker.process_data()
 
