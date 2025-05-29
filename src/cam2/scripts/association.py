@@ -119,8 +119,9 @@ def associate(detections, trackers, iou_threshold, velocities, previous_obs, vdc
             # 计算3D位置之间的欧氏距离
             pos_diff = np.array(det[:3]) - np.array(trk[:3])
             dist = np.sqrt(np.sum(pos_diff**2))
-            # 将距离转换为相似度分数（距离越小，相似度越高）
-            position_cost[i, j] = np.exp(-dist / 10.0)  # 使用指数衰减函数
+            # 使用更合适的距离衰减函数
+            # 当距离小于0.5米时，相似度接近1；当距离大于1米时，相似度快速降低
+            position_cost[i, j] = np.exp(-dist / 0.9)  # 调整衰减系数为0.3
     
     # # 打印调试信息
     # print("\n=== Debug Info ===")
@@ -154,9 +155,9 @@ def associate(detections, trackers, iou_threshold, velocities, previous_obs, vdc
     else:
         velocity_cost = np.zeros((len(detections), len(trackers)))
     
-    # 组合所有代价
-    total_cost = (position_cost * 0.7 +  # 位置代价权重
-                 velocity_cost * 0.3)     # 速度代价权重
+    # 组合所有代价，调整权重
+    total_cost = (position_cost * 0.9 +  # 增加位置权重，因为集群场景中位置信息更可靠
+                 velocity_cost * 0.1)     # 降低速度权重，因为短距离内速度变化可能较大
     
     # # 打印代价矩阵
     # print("\n=== Cost Matrix ===")
@@ -170,7 +171,7 @@ def associate(detections, trackers, iou_threshold, velocities, previous_obs, vdc
     
     # 使用匈牙利算法进行匹配
     if total_cost.size > 0:
-        matched_indices = linear_assignment(-total_cost)  # 负号是因为我们要最大化相似度
+        matched_indices = linear_assignment(-total_cost)
     else:
         matched_indices = np.empty(shape=(0,2))
     
@@ -185,10 +186,10 @@ def associate(detections, trackers, iou_threshold, velocities, previous_obs, vdc
         if t not in matched_indices[:,1]:
             unmatched_trackers.append(t)
     
-    # 过滤低相似度的匹配
+    # 过滤低相似度的匹配，使用更合适的阈值
     matches = []
     for m in matched_indices:
-        if total_cost[m[0], m[1]] < iou_threshold:  # 使用iou_threshold作为相似度阈值
+        if total_cost[m[0], m[1]] < 0.3:  # 提高相似度阈值，因为集群场景中目标应该更接近
             unmatched_detections.append(m[0])
             unmatched_trackers.append(m[1])
         else:
