@@ -9,7 +9,7 @@
     <!--<node name="tracker" pkg="com" type="tracker_sim.py" output="screen" />-->
 
     <!-- 启动 ros_encode.py -->
-    <node name="signal_decoder" pkg="com" type="decode04.py" output="screen" />
+    <node name="signal_decoder" pkg="com" type="decode.py" output="screen" />
 
     <!-- 启动 ros_encode.py -->
     <!--<node name="led_publisher" pkg="com" type="encode.py" output="screen" />-->
