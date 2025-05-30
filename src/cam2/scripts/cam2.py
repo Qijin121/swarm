@@ -18,7 +18,7 @@ import time
 import sys
 sys.path.append('/home/nvidia/swarm/devel/lib/python3/dist-packages')
 from cam.msg import LightInfo, Cam2, Detection, Dects
-Cam_ID = 14
+Cam_ID = 18
 
 class Camera(object):
     def __init__(self, Cam_ID):
@@ -201,7 +201,7 @@ if __name__ == '__main__':
         os.makedirs(image_dir)
 
     try:
-        r = rospy.Rate(100)  # 100hz
+        r = rospy.Rate(30)  # 100hz
         cam.initialization()
         # 创建 LightLocalizer 类的实例
         localizer = LightLocalizer()

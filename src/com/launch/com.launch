@@ -1,6 +1,6 @@
 <launch>
     <!-- 启动 ros_decode.py -->
-     <!-- <node name="signal_decoder" pkg="com" type="ros_decode.py" output="screen" />-->
+     <!-- <node name="led_publisher" pkg="com" type="encode_base.py" output="screen" /> -->
     
     <!-- 启动 ros_decode.py -->
     <!--<node name="signal_decoder" pkg="com" type="decode.py" output="screen" />-->
