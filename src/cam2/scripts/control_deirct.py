@@ -1,20 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import rospy
-from cam.msg import Cam1,LightInfo,Tracker
+from cam.msg import Cam1, LightInfo, Tracker
 from geometry_msgs.msg import Twist
+from std_msgs.msg import Float32MultiArray
 import numpy as np
-
-# Flocking参数
-SEPARATION_DISTANCE = 0.8    # 分离距离
-ALIGNMENT_DISTANCE = 1.3     # 对齐距离  
-COHESION_DISTANCE = 2.0      # 聚集距离
-
-SEPARATION_WEIGHT = 1.5     # 分离权重（最重要，避免碰撞）
-ALIGNMENT_WEIGHT = 1.0       # 对齐权重
-COHESION_WEIGHT = 0.8        # 聚集权重
-
-MAX_SPEED = 0.1              # 最大速度
 
 class FlockingController:
     def __init__(self):
@@ -26,10 +16,46 @@ class FlockingController:
         self.velocity_publisher = rospy.Publisher('/robot/velcmd', Twist, queue_size=10)
         
         # 订阅统一的跟踪结果话题
-        rospy.Subscriber('/tracked_lights',Tracker, self.callback)
+        rospy.Subscriber('/tracked_lights', Tracker, self.callback)
         
-        rospy.loginfo("Simple Flocking Controller Started")
+        # 订阅控制参数
+        rospy.Subscriber('/flocking_params', Float32MultiArray, self.param_callback)
+        
+        # 初始化默认参数
+        self.SEPARATION_DISTANCE = 0.8    # 分离距离
+        self.ALIGNMENT_DISTANCE = 1.3     # 对齐距离  
+        self.COHESION_DISTANCE = 2.0      # 聚集距离
+        self.SEPARATION_WEIGHT = 1.5      # 分离权重
+        self.ALIGNMENT_WEIGHT = 1.0       # 对齐权重
+        self.COHESION_WEIGHT = 0.8        # 聚集权重
+        self.MAX_SPEED = 0.1              # 最大速度
+        
+        # 方向移动相关参数
+        self.is_direction_mode = False    # 是否处于方向移动模式
+        self.target_direction = 0.0       # 目标方向（弧度）
+        
+        rospy.loginfo("Flocking Controller Started")
         rospy.loginfo("Rules: Separation + Alignment + Cohesion")
+
+    def param_callback(self, data):
+        """
+        更新控制参数
+        """
+        if len(data.data) == 7:  # 确保接收到所有参数
+            self.SEPARATION_DISTANCE = data.data[0]
+            self.ALIGNMENT_DISTANCE = data.data[1]
+            self.COHESION_DISTANCE = data.data[2]
+            self.SEPARATION_WEIGHT = data.data[3]
+            self.ALIGNMENT_WEIGHT = data.data[4]
+            self.COHESION_WEIGHT = data.data[5]
+            self.MAX_SPEED = data.data[6]
+            
+            # 检查是否进入方向移动模式
+            self.is_direction_mode = (self.SEPARATION_WEIGHT == 0 and 
+                                    self.ALIGNMENT_WEIGHT == 0 and 
+                                    self.COHESION_WEIGHT == 0)
+            
+            rospy.loginfo("Updated flocking parameters")
 
     def update_neighbors(self, data):
         """更新邻居信息"""
@@ -59,7 +85,7 @@ class FlockingController:
         
         for neighbor in self.all_neighbors:
             dist = neighbor['distance']
-            if 0 < dist < SEPARATION_DISTANCE:
+            if 0 < dist < self.SEPARATION_DISTANCE:
                 # 计算远离方向（相反方向）
                 sep_x -= neighbor['x'] / dist  # 归一化并反向
                 sep_y -= neighbor['y'] / dist
@@ -69,7 +95,7 @@ class FlockingController:
             sep_x /= count
             sep_y /= count
             
-        return sep_x * SEPARATION_WEIGHT, sep_y * SEPARATION_WEIGHT
+        return sep_x * self.SEPARATION_WEIGHT, sep_y * self.SEPARATION_WEIGHT
 
     def calculate_alignment(self):
         """计算对齐力 - 与邻居速度保持一致"""
@@ -77,7 +103,7 @@ class FlockingController:
         count = 0
         
         for neighbor in self.all_neighbors:
-            if neighbor['distance'] < ALIGNMENT_DISTANCE:
+            if neighbor['distance'] < self.ALIGNMENT_DISTANCE:
                 align_x += neighbor['vel_x']
                 align_y += neighbor['vel_y']
                 count += 1
@@ -86,7 +112,7 @@ class FlockingController:
             align_x /= count
             align_y /= count
             
-        return align_x * ALIGNMENT_WEIGHT, align_y * ALIGNMENT_WEIGHT
+        return align_x * self.ALIGNMENT_WEIGHT, align_y * self.ALIGNMENT_WEIGHT
 
     def calculate_cohesion(self):
         """计算聚集力 - 向邻居中心移动"""
@@ -94,7 +120,7 @@ class FlockingController:
         count = 0
         
         for neighbor in self.all_neighbors:
-            if neighbor['distance'] < COHESION_DISTANCE:
+            if neighbor['distance'] < self.COHESION_DISTANCE:
                 cohes_x += neighbor['x']
                 cohes_y += neighbor['y']
                 count += 1
@@ -103,7 +129,7 @@ class FlockingController:
             cohes_x /= count
             cohes_y /= count
             
-        return cohes_x * COHESION_WEIGHT, cohes_y * COHESION_WEIGHT
+        return cohes_x * self.COHESION_WEIGHT, cohes_y * self.COHESION_WEIGHT
 
     def calculate_flocking_velocity(self):
         """计算最终的flocking速度"""
@@ -121,18 +147,32 @@ class FlockingController:
         
         # 限制最大速度
         speed = np.sqrt(total_x**2 + total_y**2)
-        if speed > MAX_SPEED:
-            total_x = total_x / speed * MAX_SPEED
-            total_y = total_y / speed * MAX_SPEED
+        if speed > self.MAX_SPEED:
+            total_x = total_x / speed * self.MAX_SPEED
+            total_y = total_y / speed * self.MAX_SPEED
         
         return total_x, total_y
+
+    def calculate_direction_velocity(self):
+        """计算方向移动的速度"""
+        if not self.is_direction_mode:
+            return 0, 0
+            
+        # 计算目标方向的速度分量
+        vel_x = self.MAX_SPEED * np.cos(self.target_direction)
+        vel_y = self.MAX_SPEED * np.sin(self.target_direction)
+        
+        return vel_x, vel_y
 
     def callback(self, data):
         """跟踪数据回调"""
         self.update_neighbors(data)
         
-        # 计算并发布速度
-        vel_x, vel_y = self.calculate_flocking_velocity()
+        # 根据模式计算速度
+        if self.is_direction_mode:
+            vel_x, vel_y = self.calculate_direction_velocity()
+        else:
+            vel_x, vel_y = self.calculate_flocking_velocity()
         
         # 发布速度指令
         velocity_msg = Twist()

@@ -11,8 +11,8 @@
     <!-- 启动 ros_encode.py -->
     <node name="signal_decoder" pkg="com" type="decode.py" output="screen" />
 
-    <!-- 启动 ros_encode.py -->
-    <!--<node name="led_publisher" pkg="com" type="encode.py" output="screen" />-->
+    <!-- 启动 command_parser.py -->
+    <node name="command_parser" pkg="com" type="command_parser.py" output="screen" />
     
     <!-- 启动 command.py -->
     <!--node name="com_publisher" pkg="com" type="command.py" output="screen" /-->

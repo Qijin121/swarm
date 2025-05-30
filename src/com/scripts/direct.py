@@ -20,6 +20,7 @@ class CommandParser:
             100: self.publish_cohesion_params,     # 聚集命令
             20: self.publish_align_params,         # 对齐命令
             49: self.publish_stop_params,          # 停止命令
+            30: self.publish_direction_params,     # 方向移动命令
         }
         
         # 定义不同模式下的参数
@@ -62,13 +63,24 @@ class CommandParser:
             'COHESION_WEIGHT': 0.0,        # 停止聚集
             'MAX_SPEED': 0.0               # 停止移动
         }
+
+        self.direction_params = {
+            'SEPARATION_DISTANCE': 0.8,    # 保持默认值
+            'ALIGNMENT_DISTANCE': 1.3,     # 保持默认值
+            'COHESION_DISTANCE': 2.0,      # 保持默认值
+            'SEPARATION_WEIGHT': 0.0,      # 禁用分离
+            'ALIGNMENT_WEIGHT': 0.0,       # 禁用对齐
+            'COHESION_WEIGHT': 0.0,        # 禁用聚集
+            'MAX_SPEED': 0.15              # 设置移动速度
+        }
         
         rospy.loginfo("Command Parser Started")
         rospy.loginfo("Available commands:")
         rospy.loginfo("81: Separation mode")
         rospy.loginfo("100: Cohesion mode")
-        rospy.loginfo("82: Alignment mode")
-        rospy.loginfo("83: Stop mode")
+        rospy.loginfo("20: Alignment mode")
+        rospy.loginfo("49: Stop mode")
+        rospy.loginfo("30: Direction movement mode")
 
     def decoded_callback(self, data):
         """
@@ -129,6 +141,13 @@ class CommandParser:
         """
         self.publish_params(self.stop_params)
         rospy.loginfo("Published stop parameters")
+
+    def publish_direction_params(self):
+        """
+        发布方向移动模式的参数
+        """
+        self.publish_params(self.direction_params)
+        rospy.loginfo("Published direction movement parameters")
 
 def main():
     try:
