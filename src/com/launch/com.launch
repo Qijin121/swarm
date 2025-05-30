@@ -3,16 +3,16 @@
      <!-- <node name="signal_decoder" pkg="com" type="ros_decode.py" output="screen" />-->
     
     <!-- 启动 ros_decode.py -->
-    <!--<node name="signal_decoder" pkg="com" type="decode.py" output="screen" />-->
+    <node name="led_publisher" pkg="com" type="encode_base.py" output="screen" />
 
     <!-- 启动 tracker_sim.py -->
     <!--<node name="tracker" pkg="com" type="tracker_sim.py" output="screen" />-->
 
     <!-- 启动 ros_encode.py -->
-    <node name="signal_decoder" pkg="com" type="decode.py" output="screen" />
+    <!-- <node name="signal_decoder" pkg="com" type="decode.py" output="screen" /> -->
 
     <!-- 启动 command_parser.py -->
-    <node name="command_parser" pkg="com" type="command_parser.py" output="screen" />
+    <!-- <node name="command_parser" pkg="com" type="command_parser.py" output="screen" /> -->
     
     <!-- 启动 command.py -->
     <!--node name="com_publisher" pkg="com" type="command.py" output="screen" /-->

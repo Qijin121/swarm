@@ -3,7 +3,6 @@ import rospy
 from std_msgs.msg import Int8
 import sys
 
-
 def encode_message(binary_data):
     """
     根据接收到的八位二进制编码（整数形式）进行解码，并构建编码后的消息。
@@ -19,7 +18,7 @@ def encode_message(binary_data):
         raise ValueError("输入数据必须在0到255之间。")
 
     # 将binary_data转换为8位二进制字符串
-    binary_str = f"{binary_data:08b}"
+    binary_str = f"{binary_data:07b}"
 
     rospy.loginfo(f"Decoded data - {binary_str}")
     data_bits = binary_str # 总共7位数据位
@@ -34,6 +33,7 @@ def encode_message(binary_data):
 
     # 重复消息三次
     repeated_message = encoded_message * 3
+    repeated_message='0'+repeated_message
 
     return repeated_message
 
@@ -72,7 +72,7 @@ def publish_led_command():
     pub = rospy.Publisher('robot/ledcmd', Int8, queue_size=10)
     
     # 设置发布频率（例如 10 Hz）
-    rate = rospy.Rate(20)  # 10 Hz
+    rate = rospy.Rate(10)  # 10 Hz
     
     # 订阅 control_command 话题，使用自定义消息类型 ControlCommand
     rospy.Subscriber('control_command', Int8, control_command_callback)

@@ -201,7 +201,7 @@ if __name__ == '__main__':
         os.makedirs(image_dir)
 
     try:
-        r = rospy.Rate(100)  # 100hz
+        r = rospy.Rate(30)  # 100hz
         cam.initialization()
         # 创建 LightLocalizer 类的实例
         localizer = LightLocalizer()
