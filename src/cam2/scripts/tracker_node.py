@@ -82,13 +82,40 @@ class UnifiedTracker:
 
                         if tid not in self.id_status:
                             self.id_status[tid] = []
+                          # 添加发布 TrackStatus 消息的代码
+                        self.id_status[tid].append((self.frame_id, 1))
+
+                        # 发布跟踪消息
+                        track_msg = TrackStatus()
+                        track_msg.track_id = int(tid)
+                        track_msg.status = 1
+                        self.tracking_pub.publish(track_msg)
+                        # 获取当前所有跟踪器的状态
+            tracked_states = self.tracker.get_state()
+            
+            # 处理持续跟踪的目标
+            if tracked_states:
+                for state in tracked_states:
+                    if len(state) >= 3:  # 确保有完整的坐标[x,y,z]
+                        x, y, z, tid, vx, vy, vz = state
+                        if tid not in current_ids:
+                            # 更新ID状态
+                            if tid not in self.id_status:
+                                self.id_status[tid] = []
+                            self.id_status[tid].append((self.frame_id, 0))
+                                                        # 发布跟踪消息
+                            track_msg = TrackStatus()
+                            track_msg.track_id = int(tid)
+                            track_msg.status = 0
+                            self.tracking_pub.publish(track_msg)
+                        
 
                         light = LightInfo()
-                        light.x = x
-                        light.y = y
-                        if len(t) >= 6:
-                            light.vx = t[4]
-                            light.vy = t[5]
+                        light.x = state[0]
+                        light.y = state[1]
+                        if len(state) >= 6:
+                            light.vx = state[4]
+                            light.vy = state[5]
                         else:
                             light.vx = 0.0
                             light.vy = 0.0
@@ -131,7 +158,7 @@ class TrackerNode:
 
         # 创建定时器，4秒后开始订阅
         rospy.loginfo("Waiting 4 seconds before subscribing to camera topics...")
-        rospy.Timer(rospy.Duration(6.0), self.start_subscriptions, oneshot=True)
+        rospy.Timer(rospy.Duration(10.0), self.start_subscriptions, oneshot=True)
 
     def start_subscriptions(self, event):
         """4秒后开始订阅相机话题"""
