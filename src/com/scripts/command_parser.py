@@ -16,10 +16,10 @@ class CommandParser:
         
         # 定义命令映射
         self.commands = {
-            45: self.publish_separation_params,    # 分散命令
-            100: self.publish_cohesion_params,     # 聚集命令
-            20: self.publish_align_params,         # 对齐命令
-            49: self.publish_stop_params,          # 停止命令
+            85: self.publish_separation_params,    # 分散命令
+            170: self.publish_cohesion_params,     # 聚集命令
+            102: self.publish_align_params,         # 对齐命令
+            153: self.publish_stop_params,          # 停止命令
         }
         
         # 定义不同模式下的参数

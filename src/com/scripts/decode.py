@@ -4,7 +4,7 @@ from std_msgs.msg import Int32, String
 import threading
 import sys
 sys.path.append('/home/nvidia/swarm/devel/lib/python3/dist-packages')
-from cam.msg import TrackStatus
+from cam.msg import TrackStatus, Decoded
 
 class DecoderNode:
     def __init__(self, base_frequency=1, signal_length=11, repeat_count=3):
@@ -22,7 +22,7 @@ class DecoderNode:
         self.tracker_sub = rospy.Subscriber(f'/unified_tracker', TrackStatus, self.tracker_callback)
         
         # 发布解码后的消息话题
-        self.decoded_pub = rospy.Publisher(f'/decoded', Int32, queue_size=10)
+        self.decoded_pub = rospy.Publisher(f'/decoded', Decoded, queue_size=10)
         
         # 信号参数
         self.base_frequency = base_frequency
@@ -48,7 +48,9 @@ class DecoderNode:
         try:
             tracking_id = data.track_id
             received_bit = data.status
-            rospy.loginfo(f"Received bit - ID: {tracking_id}, Bit: {received_bit}")
+            x_pos = data.x
+            y_pos = data.y
+            rospy.loginfo(f"Received bit - ID: {tracking_id}, Bit: {received_bit}, Position: ({x_pos}, {y_pos})")
             
             # 将接收到的数据位转换为整数
             bit = int(received_bit)
@@ -59,8 +61,14 @@ class DecoderNode:
                     self.tracking_states[tracking_id] = {
                         'buffer': [],  # 用于存储接收到的二进制数据流
                         'is_collecting': False,  # 是否正在收集数据
+                        'last_x': x_pos,  # 存储最后的x坐标
+                        'last_y': y_pos   # 存储最后的y坐标
                     }
                 state = self.tracking_states[tracking_id]
+                
+                # 更新位置信息
+                state['last_x'] = x_pos
+                state['last_y'] = y_pos
                 
                 # 将新数据位添加到缓冲区
                 state['buffer'].append(bit)
@@ -96,14 +104,14 @@ class DecoderNode:
                         # 启动新线程进行解码
                         threading.Thread(
                             target=self.decode_and_publish,
-                            args=(tracking_id, signal),
+                            args=(tracking_id, signal, state['last_x'], state['last_y']),
                             daemon=True
                         ).start()
 
         except Exception as e:
             rospy.logerr(f"Error processing message: {e}")
 
-    def decode_and_publish(self, tracking_id, signal):
+    def decode_and_publish(self, tracking_id, signal, last_x, last_y):
         """
         解码信号并发布结果。
         """
@@ -122,8 +130,12 @@ class DecoderNode:
                     
                     # 发布解码后的消息
                     with self.lock:
-                        self.decoded_pub.publish(most_common_value)
-                        rospy.loginfo(f"ID: {tracking_id} - Published decoded message: {most_common_value}")
+                        decoded_msg = Decoded()
+                        decoded_msg.command = most_common_value
+                        decoded_msg.x = last_x
+                        decoded_msg.y = last_y
+                        self.decoded_pub.publish(decoded_msg)
+                        rospy.loginfo(f"ID: {tracking_id} - Published decoded message: {most_common_value}, Position: ({last_x}, {last_y})")
             else:
                 rospy.logwarn(f"Decoded messages count is not 3: {decoded_messages}")
         else:
