@@ -60,6 +60,8 @@ add_message_files(
   Detection.msg
   g_r.msg
   Tracker.msg
+  LeaderInfo.msg
+  Decoded.msg
 )
 
 ## Generate services in the 'srv' folder

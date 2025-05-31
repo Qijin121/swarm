@@ -89,6 +89,8 @@ class UnifiedTracker:
                         track_msg = TrackStatus()
                         track_msg.track_id = int(tid)
                         track_msg.status = 1
+                        track_msg.x = x
+                        track_msg.y = y
                         self.tracking_pub.publish(track_msg)
                         # 获取当前所有跟踪器的状态
             tracked_states = self.tracker.get_state()
@@ -107,6 +109,8 @@ class UnifiedTracker:
                             track_msg = TrackStatus()
                             track_msg.track_id = int(tid)
                             track_msg.status = 0
+                            track_msg.x = x
+                            track_msg.y = y
                             self.tracking_pub.publish(track_msg)
                         
 
@@ -142,7 +146,7 @@ class TrackerNode:
         rospy.init_node('unified_tracker_node', anonymous=True)
 
         # Initialize unified tracker
-        output_path = "/home/nvidia/swarm/tracking_results"
+        output_path = "/home/nvidia/tracking_results"
         tracker_params = {
             "det_thresh": 0.5,
             "iou_threshold": 0.3,

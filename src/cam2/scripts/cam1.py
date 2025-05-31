@@ -189,8 +189,7 @@ class Camera(object):
         # 释放帧缓存
         mvsdk.CameraAlignFree(self.pFrameBuffer)
     
-        # 保存跟踪状态
-        self.tracker.save_id_status()
+
 
 
 if __name__ == '__main__':
