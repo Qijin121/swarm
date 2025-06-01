@@ -1,14 +1,14 @@
 <?xml version="1.0"?>
 <launch>
     <!-- 启动命令发布节点 -->
-    <node pkg="com" type="command_publisher.py" name="command_publisher" output="screen">
+    <!-- <node pkg="com" type="command_publisher.py" name="command_publisher" output="screen"> -->
         <!-- 可以在这里添加参数 -->
-    </node>
+    <!-- </node> -->
 
     <!-- 启动命令处理节点 -->
-    <node pkg="com" type="command_processor.py" name="command_processor" output="screen">
+    <!-- <node pkg="com" type="command_processor.py" name="command_processor" output="screen"> -->
         <!-- 可以在这里添加参数 -->
-    </node>
+    <!-- </node> -->
 
     <!-- 启动命令解析节点 -->
     <node pkg="com" type="command_parser.py" name="command_parser" output="screen">
@@ -31,9 +31,9 @@
     <!-- </node> -->
 
     <!-- 启动编码基础节点 -->
-    <node pkg="com" type="encode_base.py" name="encode_base" output="screen">
+    <!-- <node pkg="com" type="encode_base.py" name="encode_base" output="screen"> -->
         <!-- 可以在这里添加参数 -->
-    </node>
+    <!-- </node> -->
 
     <!-- 启动解码节点 -->
     <node pkg="com" type="decode.py" name="decode" output="screen">

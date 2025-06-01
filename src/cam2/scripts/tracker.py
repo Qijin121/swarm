@@ -92,18 +92,6 @@ class UnifiedTracker:
                         track_msg.x = x
                         track_msg.y = y
                         self.tracking_pub.publish(track_msg)
-
-                        light = LightInfo()
-                        light.x = x
-                        light.y = y
-                        if len(t) >= 6:
-                            light.vx = t[4]
-                            light.vy = t[5]
-                        else:
-                            light.vx = 0.0
-                            light.vy = 0.0
-                        tracked_lights.append(light)
-
                         # 获取当前所有跟踪器的状态
             tracked_states = self.tracker.get_state()
             
@@ -126,7 +114,16 @@ class UnifiedTracker:
                             self.tracking_pub.publish(track_msg)
                         
 
- 
+                        light = LightInfo()
+                        light.x = state[0]
+                        light.y = state[1]
+                        if len(state) >= 6:
+                            light.vx = state[4]
+                            light.vy = state[5]
+                        else:
+                            light.vx = 0.0
+                            light.vy = 0.0
+                        tracked_lights.append(light)
 
             if tracked_lights:
                 self.tracked_lights_pub.publish(Tracker(lights=tracked_lights))

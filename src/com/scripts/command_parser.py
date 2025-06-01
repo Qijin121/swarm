@@ -3,13 +3,17 @@ import rospy
 from std_msgs.msg import Int32, Float32MultiArray
 from geometry_msgs.msg import Twist
 
+import sys
+sys.path.append('/home/nvidia/swarm/devel/lib/python3/dist-packages')
+from cam.msg import Decoded
+
 class CommandParser:
     def __init__(self):
         # 初始化ROS节点
         rospy.init_node('command_parser', anonymous=True)
         
         # 订阅解码后的消息
-        self.decoded_sub = rospy.Subscriber('/decoded', Int32, self.decoded_callback)
+        self.decoded_sub = rospy.Subscriber('/decoded', Decoded, self.decoded_callback)
         
         # 发布控制参数
         self.param_pub = rospy.Publisher('/flocking_params', Float32MultiArray, queue_size=10)
@@ -74,7 +78,7 @@ class CommandParser:
         """
         处理解码后的消息
         """
-        command = data.data
+        command = data.command
         rospy.loginfo(f"Received command: {command}")
         
         # 检查命令是否在映射中

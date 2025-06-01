@@ -189,7 +189,7 @@ def associate(detections, trackers, iou_threshold, velocities, previous_obs, vdc
     # 过滤低相似度的匹配，使用更合适的阈值
     matches = []
     for m in matched_indices:
-        if total_cost[m[0], m[1]] < 0.3:  # 提高相似度阈值，因为集群场景中目标应该更接近
+        if total_cost[m[0], m[1]] < 0.1:  # 提高相似度阈值，因为集群场景中目标应该更接近
             unmatched_detections.append(m[0])
             unmatched_trackers.append(m[1])
         else:
