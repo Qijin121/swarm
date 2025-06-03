@@ -155,7 +155,7 @@ class KalmanBoxTracker(object):
 
         # 3. 过程噪声协方差Q (6x6)
         # Q = B * Sigma_q_accel_diag * B.T
-        sigma_q_val = 0.1  # 目标加速度噪声的标准差（可调）
+        sigma_q_val = 0.02  # 目标加速度噪声的标准差（可调）
         B_matrix = np.zeros((dim_x, 3))
         B_matrix[0:3, 0:3] = (0.5 * self.kf_dt**2) * np.eye(3)
         B_matrix[3:6, 0:3] = self.kf_dt * np.eye(3)
@@ -163,8 +163,8 @@ class KalmanBoxTracker(object):
         self.kf.Q = B_matrix @ Sigma_q_accel_diag @ B_matrix.T
 
         # 4. 测量噪声协方差R (6x6)
-        sigma_mu_sq_val = 0.01  # 方向噪声的方差
-        sigma_w_sq_val = 0.1    # 距离噪声的方差
+        sigma_mu_sq_val = 0.2 # 方向噪声的方差
+        sigma_w_sq_val = 0.35    # 距离噪声的方差
         
         # 构建P_hat_g矩阵
         P_hat_g = np.eye(3) - (initial_hat_g @ initial_hat_g.T)
