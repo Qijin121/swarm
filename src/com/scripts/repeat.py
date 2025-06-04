@@ -50,6 +50,7 @@ def publish_command_sequence(pub, rate, log_file, round_num, repeat=5):
             log_command(log_file, name, cmd, round_num, i+1)
             rospy.loginfo(f"第 {i+1}/{repeat} 次 -> 发布命令: {cmd}")
             rate.sleep()
+            rospy.sleep(4)
         rospy.loginfo(f"{name} 命令发送完毕\n")
 
 def interactive_sender():
@@ -58,7 +59,7 @@ def interactive_sender():
     """
     rospy.init_node('command_sequence_interactive', anonymous=True)
     pub = rospy.Publisher('control_command', Int16, queue_size=10)
-    rate = rospy.Rate(0.5)  # 0.5Hz，即每2秒一次
+    rate = rospy.Rate(0.25)  # 0.5Hz，即每2秒一次
 
     # 初始化日志文件
     log_file = init_command_log()
@@ -72,7 +73,7 @@ def interactive_sender():
     while not rospy.is_shutdown():
         user_input = input("是否发送5轮命令？(y/Enter/q): ").strip().lower()
         if user_input in ['', 'y']:
-            for round_num in range(5):
+            for round_num in range(3):
                 print(f"\n开始执行第 {round_num + 1}/5 轮命令序列")
                 publish_command_sequence(pub, rate, log_file, round_num + 1, repeat=5)
                 if round_num < 4:

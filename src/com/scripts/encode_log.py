@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import rospy
-from std_msgs.msg import Int8
+from std_msgs.msg import Int8, Int16
 import sys
 import csv
 import os
@@ -108,7 +108,7 @@ def publish_led_command():
     rospy.loginfo(f"调制命令日志文件已创建：{log_file}")
     
     # 订阅 control_command 话题，使用自定义消息类型 ControlCommand
-    rospy.Subscriber('control_command', Int8, control_command_callback)
+    rospy.Subscriber('control_command', Int16, control_command_callback)
     
     # 初始化消息接收标志
     received_message = False
