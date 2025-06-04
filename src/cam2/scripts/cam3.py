@@ -19,7 +19,7 @@ import time
 import sys
 sys.path.append('/home/nvidia/swarm/devel/lib/python3/dist-packages')
 
-Cam_ID = 7
+Cam_ID = 11
 
 class Camera(object):
     def __init__(self, Cam_ID):

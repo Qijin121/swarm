@@ -35,8 +35,8 @@
         <!-- 可以在这里添加参数 -->
     <!-- </node> -->
 
-       <!-- 启动编码基础节点 -->
-    <node pkg="com" type="encode_log.py" name="encode_log" output="screen">
+    <!-- 启动解码节点 -->
+    <node pkg="com" type="decode.py" name="decode" output="screen">
         <!-- 可以在这里添加参数 -->
     </node>
 

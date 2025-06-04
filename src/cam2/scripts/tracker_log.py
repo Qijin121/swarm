@@ -51,7 +51,7 @@ class UnifiedTracker:
         os.makedirs(self.log_dir, exist_ok=True)
         
         # 创建日志文件
-        timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         self.log_file = os.path.join(self.log_dir, f'tracker_data_{timestamp}.csv')
         
         # 初始化CSV文件
@@ -119,7 +119,7 @@ class UnifiedTracker:
 
     def save_tracker_data(self, frame_id, track_id, x, y, z, vx, vy, vz):
         """保存跟踪器数据"""
-        timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
+        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
         with open(self.log_file, 'a', newline='') as f:
             writer = csv.writer(f)
             writer.writerow([timestamp, frame_id, track_id, x, y, z, vx, vy, vz])
