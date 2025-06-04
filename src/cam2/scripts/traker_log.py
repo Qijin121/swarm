@@ -40,6 +40,25 @@ class UnifiedTracker:
         self.tracking_pub = rospy.Publisher('/unified_tracker', TrackStatus, queue_size=10)
         self.tracked_lights_pub = rospy.Publisher('/tracked_lights', Tracker, queue_size=10)
 
+        # 添加数据记录相关的属性
+        self.tracker_data = {
+            'KF_pose': [],  # 位置数据
+            'KF_vel': []    # 速度数据
+        }
+        
+        # 创建日志目录
+        self.log_dir = os.path.expanduser('~/tracker_data')
+        os.makedirs(self.log_dir, exist_ok=True)
+        
+        # 创建日志文件
+        timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+        self.log_file = os.path.join(self.log_dir, f'tracker_data_{timestamp}.csv')
+        
+        # 初始化CSV文件
+        with open(self.log_file, 'w', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow(['timestamp', 'frame_id', 'track_id', 'x', 'y', 'z', 'vx', 'vy', 'vz'])
+
     def init_tracking_log(self):
         """初始化跟踪日志"""
         # 创建日志目录
@@ -98,6 +117,17 @@ class UnifiedTracker:
         except queue.Full:
             rospy.logwarn("Log queue is full, dropping log entry")
 
+    def save_tracker_data(self, frame_id, track_id, x, y, z, vx, vy, vz):
+        """保存跟踪器数据"""
+        timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
+        with open(self.log_file, 'a', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow([timestamp, frame_id, track_id, x, y, z, vx, vy, vz])
+        
+        # 同时保存到内存中用于实时分析
+        self.tracker_data['KF_pose'].append([x, y, z])
+        self.tracker_data['KF_vel'].append([vx, vy, vz])
+
     def process_data(self):
         """使用所有相机当前最新的方向向量和距离数据进行处理"""
         with self.lock:
@@ -149,6 +179,9 @@ class UnifiedTracker:
                         # 记录跟踪状态（非阻塞方式）
                         self.log_tracking(self.frame_id, int(tid), 1, x, y, vx, vy)
 
+                        # 保存跟踪器数据
+                        self.save_tracker_data(self.frame_id, int(tid), x, y, 0, vx, vy, 0)
+
                         # 发布跟踪消息
                         track_msg = TrackStatus()
                         track_msg.track_id = int(tid)
@@ -175,6 +208,9 @@ class UnifiedTracker:
                         if tid not in current_ids:
                             # 记录跟踪状态（非阻塞方式）
                             self.log_tracking(self.frame_id, int(tid), 0, x, y, vx, vy)
+                            
+                            # 保存跟踪器数据
+                            self.save_tracker_data(self.frame_id, int(tid), x, y, 0, vx, vy, 0)
                             
                             # 发布跟踪消息
                             track_msg = TrackStatus()
