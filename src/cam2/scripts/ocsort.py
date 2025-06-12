@@ -164,7 +164,7 @@ class KalmanBoxTracker(object):
 
         # 4. 测量噪声协方差R (6x6)
         sigma_mu_sq_val = 0.2 # 方向噪声的方差
-        sigma_w_sq_val = 0.35    # 距离噪声的方差
+        sigma_w_sq_val = 0.4    # 距离噪声的方差
         
         # 构建P_hat_g矩阵
         P_hat_g = np.eye(3) - (initial_hat_g @ initial_hat_g.T)

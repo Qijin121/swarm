@@ -18,7 +18,7 @@ import time
 import sys
 sys.path.append('/home/nvidia/swarm/devel/lib/python3/dist-packages')
 from cam.msg import LightInfo, Cam2, Detection, Dects
-Cam_ID = 10
+Cam_ID = 6
 
 class Camera(object):
     def __init__(self, Cam_ID):

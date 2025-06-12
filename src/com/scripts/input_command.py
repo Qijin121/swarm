@@ -20,7 +20,7 @@ def get_command_from_input():
     if user_input == '1':
         return 85  # 分散命令
     elif user_input == '2':
-        return 170  # 聚集命令
+        return 43  # 聚集命令
     elif user_input == '3':
         return 102  # 对齐命令
     elif user_input == '4':
